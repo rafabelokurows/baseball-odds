@@ -1,0 +1,45 @@
+name: Scrape MLB/NFL odds via Lumify
+
+# Alternative to the Betclic scrapers (currently blocked by CloudFront).
+# Requires repo secret: LUMIFY_API_KEY (free instant key: https://lumify.ai/docs/ai)
+
+on:
+  workflow_dispatch:
+  # Uncomment to snapshot twice daily:
+  # schedule:
+  #   - cron: "0 8,20 * * *"
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests pandas
+
+      - name: Run Lumify scrape
+        env:
+          LUMIFY_API_KEY: ${{ secrets.LUMIFY_API_KEY }}
+        run: python scrape-lumify-games.py
+
+      - name: Commit snapshots
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add data/lumify || true
+          git diff-index --quiet HEAD || git commit -m "chore: update Lumify odds snapshots"
+
+      - name: Push
+        uses: ad-m/github-push-action@v0.6.0
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          branch: main
